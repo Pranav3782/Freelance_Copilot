@@ -92,7 +92,7 @@ export const initialProfile: FreelancerProfile = {
 export const sampleProjects: ProjectAnalysis[] = [
   {
     id: 'proj-001',
-    title: 'Enterprise AI Analytics Dashboard with Supabase, Multi-Tenant Auth & Stripe Billing',
+    title: 'Enterprise AI Analytics Suite — High-Ticket Opportunity or Hidden Scope Trap?',
     source: 'Upwork — Verified Enterprise',
     postedDate: '2 hours ago',
     description: `We need an expert full-stack React/Next.js engineer to build our core customer-facing analytics dashboard for an AI observability platform.

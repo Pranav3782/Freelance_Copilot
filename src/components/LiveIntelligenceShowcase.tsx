@@ -124,7 +124,7 @@ export const LiveIntelligenceShowcase: React.FC<LiveIntelligenceShowcaseProps> =
             </div>
             
             <h3 className="text-2xl sm:text-3xl font-black text-[#050505] mt-1 relative inline-block">
-              Enterprise AI Analytics Dashboard with Supabase
+              Enterprise AI Analytics Suite — High-Ticket Opportunity or Hidden Scope Trap?
               {stage > 0 && stage < 8 && (
                 <motion.span
                   initial={{ opacity: 0 }}
