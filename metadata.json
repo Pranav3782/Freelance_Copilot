@@ -1,0 +1,8 @@
+{
+  "name": "FreelanceOS",
+  "description": "AI-native Freelancer Opportunity Intelligence Platform & Copilot to evaluate project fit, scan client risks, detect hidden requirements, and craft winning proposals.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

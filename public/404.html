@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Redirecting...</title>
+    <script>
+      // Single Page Application (SPA) redirect for GitHub Pages / Static Hosting
+      var pathSegments = location.pathname.split('/');
+      var route = location.pathname;
+      sessionStorage.setItem('redirect_path', route);
+      location.replace('/');
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to FreelanceOS...</p>
+  </body>
+</html>
