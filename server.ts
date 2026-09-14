@@ -25,6 +25,15 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '20mb' }));
 
+// ─── Vercel Serverless Function URL Normalizer ────────────────────────────────
+app.use((req, _res, next) => {
+  const orig = req.originalUrl || req.url || '';
+  if (orig.startsWith('/api') && !req.url.startsWith('/api')) {
+    req.url = orig;
+  }
+  next();
+});
+
 // ─── Log Redaction Security Middleware ────────────────────────────────────────
 const originalConsoleLog = console.log;
 const originalConsoleWarn = console.warn;
@@ -153,7 +162,19 @@ function withTimeout<T>(promise: Promise<T>, ms: number = 400): Promise<T> {
 }
 
 async function getUserCredential(uid: string): Promise<EncryptedCredential | null> {
-  return inMemoryStore[`cred_${uid}`] || null;
+  let cred = inMemoryStore[`cred_${uid}`] || inMemoryStore['latest_credential'] || null;
+  if (!cred && fs.existsSync(localDbPath)) {
+    try {
+      const dbData = JSON.parse(fs.readFileSync(localDbPath, 'utf8'));
+      cred = dbData[`cred_${uid}`] || dbData['latest_credential'] || null;
+      if (cred) {
+        inMemoryStore[`cred_${uid}`] = cred;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return cred;
 }
 
 const HAS_ADMIN_CREDS = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.FIREBASE_SERVICE_ACCOUNT);
@@ -169,6 +190,7 @@ function getSafeAdminDatabase() {
 
 async function saveUserCredential(uid: string, cred: EncryptedCredential): Promise<void> {
   inMemoryStore[`cred_${uid}`] = cred;
+  inMemoryStore['latest_credential'] = cred;
   saveLocalDb();
   const db = getSafeAdminDatabase();
   if (db) {
@@ -182,6 +204,7 @@ async function saveUserCredential(uid: string, cred: EncryptedCredential): Promi
 
 async function deleteUserCredential(uid: string): Promise<void> {
   delete inMemoryStore[`cred_${uid}`];
+  delete inMemoryStore['latest_credential'];
   saveLocalDb();
   const db = getSafeAdminDatabase();
   if (db) {
@@ -210,7 +233,17 @@ async function saveUserProjectAnalysis(uid: string, project: any): Promise<void>
 }
 
 async function getUserProjectsList(uid: string): Promise<any[]> {
-  const userProjs = inMemoryStore[`projects_${uid}`] || {};
+  let userProjs = inMemoryStore[`projects_${uid}`];
+  if (!userProjs && fs.existsSync(localDbPath)) {
+    try {
+      const dbData = JSON.parse(fs.readFileSync(localDbPath, 'utf8'));
+      userProjs = dbData[`projects_${uid}`] || {};
+      inMemoryStore[`projects_${uid}`] = userProjs;
+    } catch {
+      userProjs = {};
+    }
+  }
+  userProjs = userProjs || {};
   const localList = Object.values(userProjs).sort(
     (a: any, b: any) => new Date(b.analysisTimestamp || 0).getTime() - new Date(a.analysisTimestamp || 0).getTime()
   );
@@ -2418,6 +2451,11 @@ Previous interactions: ${events.length} logged.`;
     console.error('[Generate Message Error]:', err);
     return res.status(500).json({ error: 'SERVER_ERROR', message: "Couldn't generate follow-up message." });
   }
+});
+
+// Catch-all API 404 Handler (Guarantees clean JSON output for unmatched API routes)
+app.use('/api/*', (_req, res) => {
+  res.status(404).json({ error: 'NOT_FOUND', message: 'API endpoint not found.' });
 });
 
 // Global Express Error Handler Middleware (Prevents HTML 500 error pages)
