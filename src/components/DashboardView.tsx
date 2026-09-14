@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { FreelancerProfile, ProjectAnalysis } from '../types';
 import { ScoreRing } from './ScoreRing';
+import { formatINR, getProjectAmountINR } from '../utils/format';
 
 interface DashboardViewProps {
   profile: FreelancerProfile;
@@ -35,9 +36,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const goodMatches = projects.filter((p) => p.recommendation === 'APPLY');
 
-  const totalPipelineVal = projects
+  const totalPipelineValINR = projects
     .filter((p) => p && p.applicationStage !== 'Finished')
-    .reduce((acc, p) => acc + (p?.pricingIntelligence?.suggestedMax || 3500), 0);
+    .reduce((acc, p) => acc + getProjectAmountINR(p), 0);
 
 
 
@@ -83,7 +84,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="absolute top-0 right-6 w-4 h-7 bookmark-ribbon-yellow shadow-sm" />
           <span className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-white/90">Active Pipeline</span>
           <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white mt-2 mb-1">
-            ${totalPipelineVal.toLocaleString()}
+            {formatINR(totalPipelineValINR)}
           </div>
           <span className="text-[10px] sm:text-[11px] font-bold text-white/95">
             Across {projects.filter((p) => p.applicationStage !== 'Finished').length} opportunities
@@ -165,7 +166,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
 
                   <div className="whitespace-nowrap shrink-0 px-3 py-1 rounded-full bg-[#FFF39A] border-2 border-[#050505] text-xs font-black text-[#050505] shadow-retro-sm">
-                    {proj.projectOverview?.budget || 'Fixed / Hourly'}
+                    {formatINR(getProjectAmountINR(proj))}
                   </div>
                 </div>
 

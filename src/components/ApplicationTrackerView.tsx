@@ -13,36 +13,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { ProjectAnalysis, ApplicationStage } from '../types';
-
-export function formatINR(val: number | string): string {
-  if (typeof val === 'number') {
-    const rupees = val < 10000 ? Math.round(val * 85) : val;
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(rupees);
-  }
-  
-  if (!val) return '₹0';
-  const str = String(val).trim();
-  const hasDollar = str.includes('$');
-  const numMatch = str.match(/[\d,.]+/);
-  if (!numMatch) return str;
-
-  let num = parseFloat(numMatch[0].replace(/,/g, ''));
-  if (isNaN(num)) return str;
-
-  if (hasDollar || num < 10000) {
-    num = Math.round(num * 85);
-  }
-
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(num);
-}
+import { formatINR, getProjectAmountINR } from '../utils/format';
 
 interface ApplicationTrackerViewProps {
   projects: ProjectAnalysis[];
@@ -139,7 +110,7 @@ const StageDropdown: React.FC<StageDropdownProps> = ({ value, onChange, compact 
       </button>
 
       {open && (
-        <div className="absolute bottom-full mb-2 left-0 z-50 w-44 bg-white border-2 border-[#050505] rounded-2xl shadow-retro overflow-hidden animate-in slide-in-from-bottom duration-150">
+        <div className="absolute bottom-full mb-2 left-0 z-50 w-48 max-h-52 overflow-y-auto bg-white border-2 border-[#050505] rounded-2xl shadow-retro animate-in slide-in-from-bottom duration-150">
           {STAGES.map((stage) => {
             const s = STAGE_CONFIG[stage];
             const isActive = stage === value;
@@ -224,7 +195,7 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
     ['Reached', 'Got Response', 'Started', 'Finished'].includes(p.applicationStage)
   ).length;
   const responseRate = reachedCount > 0 ? Math.round((respondedCount / reachedCount) * 100) : 0;
-  const totalPipelineValueINR = projects.reduce((acc, p) => acc + Math.round((p.pricingIntelligence?.suggestedMax || 3500) * 85), 0);
+  const totalPipelineValueINR = projects.reduce((acc, p) => acc + getProjectAmountINR(p), 0);
 
   return (
     <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-5 sm:space-y-8 text-[#050505]">
@@ -311,7 +282,7 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
             </div>
 
             {mobileStagePanelOpen && (
-              <div className="absolute top-full mt-2 left-0 right-0 z-50 bg-white border-2 border-[#050505] rounded-2xl shadow-retro overflow-hidden animate-in slide-in-from-top duration-150">
+              <div className="absolute top-full mt-2 left-0 right-0 z-50 max-h-60 overflow-y-auto bg-white border-2 border-[#050505] rounded-2xl shadow-retro animate-in slide-in-from-top duration-150">
                 {STAGES.map((stage) => {
                   const s = STAGE_CONFIG[stage];
                   const count = projects.filter((p) => p.applicationStage === stage).length;
@@ -357,7 +328,7 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
                   }`}>
                     {proj.matchScore}% Match
                   </span>
-                  <span className="text-[10px] text-[#050505] font-black">{formatINR(proj.projectOverview.budget)}</span>
+                  <span className="text-[10px] text-[#050505] font-black">{formatINR(getProjectAmountINR(proj))}</span>
                 </div>
                 <h4 className="text-sm font-black text-[#050505] line-clamp-2 leading-snug">{proj.title}</h4>
                 <div className="text-[11px] font-semibold text-[#050505]/70 flex items-center justify-between">
@@ -447,7 +418,7 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
                               {proj.matchScore}%
                             </span>
                           </div>
-                          <span className="text-[10px] text-[#050505]/70 font-black">{formatINR(proj.projectOverview.budget)}</span>
+                          <span className="text-[10px] text-[#050505]/70 font-black">{formatINR(getProjectAmountINR(proj))}</span>
                         </div>
 
                         <h4 className="text-xs font-black text-[#050505] line-clamp-2 leading-snug group-hover:text-[#6F86F5] transition-colors">

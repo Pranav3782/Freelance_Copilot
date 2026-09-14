@@ -319,3 +319,29 @@ export async function generateAIFollowUpMessage(
   }
 }
 
+export async function updateProjectStageApi(projectId: string, applicationStage: string): Promise<{ success: boolean; error?: string }> {
+  const headers = await getAuthHeader();
+  try {
+    const res = await fetch(`/api/projects/${encodeURIComponent(projectId)}/stage`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      body: JSON.stringify({ applicationStage }),
+    });
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return { success: false, error: 'Server returned invalid response.' };
+    }
+    const data = await res.json();
+    if (!res.ok) {
+      return { success: false, error: data.message || data.error || 'Failed to update project stage.' };
+    }
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Network error updating project stage.' };
+  }
+}
+
+

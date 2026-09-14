@@ -25,7 +25,7 @@ import { auth, db } from './lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, get, set } from 'firebase/database';
 import { Toaster, toast } from 'sonner';
-import { fetchAICredentialStatus, fetchUserProjects, fetchProjectById } from './lib/api';
+import { fetchAICredentialStatus, fetchUserProjects, fetchProjectById, updateProjectStageApi } from './lib/api';
 import { useSubscription } from './hooks/useSubscription';
 
 type AppViewType = AppView;
@@ -169,8 +169,26 @@ export default function App() {
       setCredentialStatus(status);
 
       const userProjs = await fetchUserProjects();
+      let storedStages: Record<string, string> = {};
+      try {
+        storedStages = JSON.parse(localStorage.getItem('freelanceos_project_stages') || '{}');
+      } catch {
+        storedStages = {};
+      }
+
       if (userProjs && userProjs.length > 0) {
-        setProjects(userProjs);
+        const merged = userProjs.map((p) => {
+          if (storedStages[p.id]) {
+            return { ...p, applicationStage: storedStages[p.id] as any };
+          }
+          return p;
+        });
+        setProjects(merged);
+      } else {
+        // Fallback to updating initial/sample projects with stored stages
+        setProjects((prev) =>
+          prev.map((p) => (storedStages[p.id] ? { ...p, applicationStage: storedStages[p.id] as any } : p))
+        );
       }
     } catch (err) {
       console.warn('[App] Credential/Project load notice:', err);
@@ -322,8 +340,8 @@ export default function App() {
   };
 
   const handleUpdateStage = (projectId: string, newStage: ProjectAnalysis['applicationStage']) => {
-    setProjects(
-      projects.map((p) => {
+    setProjects((prev) =>
+      prev.map((p) => {
         if (p.id === projectId) {
           return { ...p, applicationStage: newStage };
         }
@@ -331,8 +349,28 @@ export default function App() {
       })
     );
     if (selectedProject?.id === projectId) {
-      setSelectedProject({ ...selectedProject, applicationStage: newStage });
+      setSelectedProject((prev) => (prev ? { ...prev, applicationStage: newStage } : prev));
     }
+
+    // Persist to localStorage immediately
+    try {
+      const stored = JSON.parse(localStorage.getItem('freelanceos_project_stages') || '{}');
+      stored[projectId] = newStage;
+      localStorage.setItem('freelanceos_project_stages', JSON.stringify(stored));
+    } catch {
+      // ignore
+    }
+
+    // Sync to Firebase DB and backend API
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        set(ref(db, `users/${user.uid}/projects/${projectId}/applicationStage`), newStage).catch(() => {});
+      } catch {
+        // ignore
+      }
+    }
+    updateProjectStageApi(projectId, newStage).catch(() => {});
   };
 
   const handleUpdateProfile = async (updated: FreelancerProfile) => {

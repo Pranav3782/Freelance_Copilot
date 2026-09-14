@@ -109,14 +109,19 @@ function decryptApiKey(cred: EncryptedCredential): string {
 }
 
 // ─── Local JSON DB Fallback for High Uptime ───────────────────────────────────
-const scratchStorageDir = path.join(__dirname, '.scratch');
-if (!fs.existsSync(scratchStorageDir)) {
-  try {
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+const scratchStorageDir = isVercel
+  ? path.join('/tmp', '.scratch')
+  : path.join(__dirname, '.scratch');
+
+try {
+  if (!fs.existsSync(scratchStorageDir)) {
     fs.mkdirSync(scratchStorageDir, { recursive: true });
-  } catch {
-    // ignore
   }
+} catch (err) {
+  console.warn('[Local DB Storage] Directory creation notice:', err);
 }
+
 const localDbPath = path.join(scratchStorageDir, 'scratch_local_db.json');
 
 let inMemoryStore: Record<string, any> = {};
@@ -131,9 +136,12 @@ try {
 
 function saveLocalDb() {
   try {
+    if (!fs.existsSync(scratchStorageDir)) {
+      fs.mkdirSync(scratchStorageDir, { recursive: true });
+    }
     fs.writeFileSync(localDbPath, JSON.stringify(inMemoryStore, null, 2), 'utf8');
   } catch (err) {
-    console.warn('[Local DB] Write error:', err);
+    console.warn('[Local DB] Write notice:', err);
   }
 }
 
@@ -1314,6 +1322,44 @@ app.get('/api/projects/:projectId', async (req, res) => {
     return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to fetch project analysis.' });
   }
 });
+
+// PATCH /api/projects/:projectId/stage — Update application stage for a project
+const updateProjectStageHandler = async (req: express.Request, res: express.Response) => {
+  try {
+    const uid = verifyIdTokenSync(req.headers.authorization);
+    const { projectId } = req.params;
+    const { applicationStage, stage } = req.body || {};
+    const newStage = applicationStage || stage;
+
+    if (!projectId || !newStage) {
+      return res.status(400).json({ error: 'INVALID_INPUT', message: 'Project ID and applicationStage are required.' });
+    }
+
+    const projects = await getUserProjectsList(uid);
+    const proj = projects.find((p: any) => p && p.id === projectId);
+    if (proj) {
+      proj.applicationStage = newStage;
+      await saveUserProjectAnalysis(uid, proj);
+      return res.json({ success: true, project: proj });
+    }
+
+    // Auto-create stub if project does not exist yet
+    const stubProject = {
+      id: projectId,
+      title: `Project (${projectId})`,
+      applicationStage: newStage,
+      analysisTimestamp: new Date().toISOString(),
+    };
+    await saveUserProjectAnalysis(uid, stubProject);
+    return res.json({ success: true, project: stubProject });
+  } catch (err: any) {
+    console.error('[API Error] PATCH /api/projects/:projectId/stage:', err);
+    return res.status(500).json({ error: 'SERVER_ERROR', message: 'Failed to update project stage.' });
+  }
+};
+
+app.patch('/api/projects/:projectId/stage', updateProjectStageHandler);
+app.put('/api/projects/:projectId/stage', updateProjectStageHandler);
 
 // POST /api/contact — Public contact form endpoint with server-side validation & secure routing
 app.post('/api/contact', async (req, res) => {
