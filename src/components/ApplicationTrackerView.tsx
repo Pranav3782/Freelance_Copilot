@@ -332,7 +332,7 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
                 </div>
                 <h4 className="text-sm font-black text-[#050505] line-clamp-2 leading-snug">{proj.title}</h4>
                 <div className="text-[11px] font-semibold text-[#050505]/70 flex items-center justify-between">
-                  <span>{proj.clientIntelligence.companyName || 'Client Opportunity'}</span>
+                  <span>{proj.clientIntelligence?.companyName || 'Client Opportunity'}</span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -426,7 +426,7 @@ export const ApplicationTrackerView: React.FC<ApplicationTrackerViewProps> = ({
                         </h4>
 
                         <div className="text-[10px] font-semibold text-[#050505]/60 flex items-center justify-between">
-                          <span>{proj.clientIntelligence.companyName || 'Client Opportunity'}</span>
+                          <span>{proj.clientIntelligence?.companyName || 'Client Opportunity'}</span>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
