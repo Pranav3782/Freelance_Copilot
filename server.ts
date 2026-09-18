@@ -705,10 +705,10 @@ app.get('/api/user/usage', async (req, res) => {
 // ─── BYOK CREDENTIAL ENDPOINTS ────────────────────────────────────────────────
 
 // GET /api/ai-credentials & /api/ai-credentials/status — Check credential status without returning raw key
-const getCredentialStatusHandler = (req: express.Request, res: express.Response) => {
+const getCredentialStatusHandler = async (req: express.Request, res: express.Response) => {
   try {
     const uid = verifyIdTokenSync(req.headers.authorization);
-    const cred = inMemoryStore[`cred_${uid}`];
+    const cred = await getUserCredential(uid);
     if (!cred) {
       return res.json({ connected: false });
     }
@@ -726,8 +726,7 @@ const getCredentialStatusHandler = (req: express.Request, res: express.Response)
   }
 };
 
-app.get('/api/ai-credentials/status', getCredentialStatusHandler);
-app.get('/api/ai-credentials', getCredentialStatusHandler);
+app.get(['/api/ai-credentials/status', '/ai-credentials/status', '/api/ai-credentials', '/ai-credentials'], getCredentialStatusHandler);
 
 // POST /api/ai-credentials/validate & /test — Dedicated lightweight API-key validation endpoint
 const validateCredentialHandler = async (req: express.Request, res: express.Response) => {
@@ -750,11 +749,10 @@ const validateCredentialHandler = async (req: express.Request, res: express.Resp
   }
 };
 
-app.post('/api/ai-credentials/validate', validateCredentialHandler);
-app.post('/api/ai-credentials/test', validateCredentialHandler);
+app.post(['/api/ai-credentials/validate', '/ai-credentials/validate', '/api/ai-credentials/test', '/ai-credentials/test'], validateCredentialHandler);
 
-// POST /api/ai-credentials — Validate, encrypt & save new credential
-app.post('/api/ai-credentials', async (req, res) => {
+// POST /api/ai-credentials & /ai-credentials — Validate, encrypt & save new credential
+app.post(['/api/ai-credentials', '/ai-credentials'], async (req, res) => {
   try {
     const uid = verifyIdTokenSync(req.headers.authorization);
     const { provider = 'gemini', apiKey } = req.body || {};
@@ -783,8 +781,8 @@ app.post('/api/ai-credentials', async (req, res) => {
   }
 });
 
-// PUT /api/ai-credentials — Replace API key safely (Validates new key FIRST)
-app.put('/api/ai-credentials', async (req, res) => {
+// PUT /api/ai-credentials & /ai-credentials — Replace API key safely (Validates new key FIRST)
+app.put(['/api/ai-credentials', '/ai-credentials'], async (req, res) => {
   try {
     const uid = verifyIdTokenSync(req.headers.authorization);
     const { provider = 'gemini', apiKey } = req.body || {};
@@ -813,8 +811,8 @@ app.put('/api/ai-credentials', async (req, res) => {
   }
 });
 
-// DELETE /api/ai-credentials — Remove stored credential
-app.delete('/api/ai-credentials', async (req, res) => {
+// DELETE /api/ai-credentials & /ai-credentials — Remove stored credential
+app.delete(['/api/ai-credentials', '/ai-credentials'], async (req, res) => {
   try {
     const uid = verifyIdTokenSync(req.headers.authorization);
     const provider = (req.query.provider as string) || 'gemini';
@@ -1300,8 +1298,8 @@ Return a valid JSON object matching this schema:
 
 // ─── USER PROJECT HISTORY ENDPOINTS ──────────────────────────────────────────
 
-// GET /api/projects — List user project history
-app.get('/api/projects', async (req, res) => {
+// GET /api/projects & /projects — List user project history
+app.get(['/api/projects', '/projects'], async (req, res) => {
   try {
     const uid = await verifyIdToken(req.headers.authorization);
     if (!uid) {
@@ -1316,8 +1314,8 @@ app.get('/api/projects', async (req, res) => {
   }
 });
 
-// GET /api/projects/:projectId — Fetch single project with strict ownership verification
-app.get('/api/projects/:projectId', async (req, res) => {
+// GET /api/projects/:projectId & /projects/:projectId — Fetch single project with strict ownership verification
+app.get(['/api/projects/:projectId', '/projects/:projectId'], async (req, res) => {
   try {
     const uid = verifyIdTokenSync(req.headers.authorization);
     const { projectId } = req.params;
@@ -1777,7 +1775,10 @@ const analyzeHandler = async (req: express.Request, res: express.Response) => {
       });
     }
 
-    const { projectText, imageBase64, profile } = req.body || {};
+    const { projectText, imageBase64, profile, apiKey: bodyApiKey } = req.body || {};
+    const headerApiKey = req.headers['x-ai-api-key'] as string | undefined;
+    const providedApiKey = (bodyApiKey || headerApiKey || '').trim();
+
     if (!projectText && !imageBase64) {
       return res.status(400).json({
         error: 'INVALID_INPUT',
@@ -1798,7 +1799,14 @@ const analyzeHandler = async (req: express.Request, res: express.Response) => {
     }
 
     // Guard: Verify authenticated user has an active Gemini/AI API key credential
-    const cred = await getUserCredential(uid);
+    let cred = await getUserCredential(uid);
+    if ((!cred || cred.status !== 'active') && providedApiKey && providedApiKey.length >= 10) {
+      const saveRes = await AiCredentialService.saveCredential(uid, 'gemini', providedApiKey);
+      if (saveRes.valid) {
+        cred = await getUserCredential(uid);
+      }
+    }
+
     if (!cred || cred.status !== 'active') {
       return res.status(428).json({
         error: 'AI_CREDENTIAL_REQUIRED',
@@ -2032,8 +2040,7 @@ Return a structured JSON object matching the exact schema:
   }
 };
 
-app.post('/api/analyze', analyzeHandler);
-app.post('/api/projects/analyze', analyzeHandler);
+app.post(['/api/analyze', '/analyze', '/api/projects/analyze', '/projects/analyze'], analyzeHandler);
 
 // ─── Contact Form Endpoint with Rate Limiting & Validation ───────────────────
 const contactIpRateLimit: Record<string, { count: number; resetAt: number }> = {};
